@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 
+	"github.com/yatoenough/miniredis/internal/handler"
 	"github.com/yatoenough/miniredis/internal/resp"
 	"github.com/yatoenough/miniredis/internal/writer"
 )
@@ -17,10 +19,18 @@ func main() {
 
 	fmt.Println("Listening on port :6379")
 
-	conn, err := l.Accept()
-	if err != nil {
-		log.Fatalf("%v", err)
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			log.Fatalf("%v", err)
+		}
+
+		go handleConn(conn)
 	}
+}
+
+func handleConn(conn net.Conn) {
+	defer conn.Close()
 
 	for {
 		respr := resp.NewRESP(conn)
@@ -40,8 +50,19 @@ func main() {
 			continue
 		}
 
-		writer := writer.NewWriter(conn)
+		command := strings.ToUpper(value.Array[0].Bulk)
+		args := value.Array[1:]
 
-		writer.Write(resp.Value{Typ: "string", Str: "OK"})
+		w := writer.NewWriter(conn)
+
+		handler, ok := handler.Handlers[command]
+		if !ok {
+			fmt.Println("Invalid command: ", command)
+			w.Write(resp.Value{Typ: "string", Str: ""})
+			continue
+		}
+
+		result := handler(args)
+		w.Write(result)
 	}
 }
