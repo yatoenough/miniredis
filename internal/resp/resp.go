@@ -37,21 +37,21 @@ func (r *RESP) Read() (Value, error) {
 
 func (r *RESP) readArray() (Value, error) {
 	v := Value{}
-	v.typ = "array"
+	v.Typ = "array"
 
 	length, _, err := r.readInteger()
 	if err != nil {
 		return v, err
 	}
 
-	v.array = make([]Value, length)
+	v.Array = make([]Value, length)
 	for i := range length {
 		val, err := r.Read()
 		if err != nil {
 			return v, err
 		}
 
-		v.array[i] = val
+		v.Array[i] = val
 	}
 
 	return v, nil
@@ -60,7 +60,7 @@ func (r *RESP) readArray() (Value, error) {
 func (r *RESP) readBulk() (Value, error) {
 	v := Value{}
 
-	v.typ = "bulk"
+	v.Typ = "bulk"
 
 	len, _, err := r.readInteger()
 	if err != nil {
@@ -71,7 +71,7 @@ func (r *RESP) readBulk() (Value, error) {
 
 	r.reader.Read(bulk)
 
-	v.bulk = string(bulk)
+	v.Bulk = string(bulk)
 
 	r.readLine()
 
