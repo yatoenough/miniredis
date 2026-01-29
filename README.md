@@ -1,6 +1,6 @@
 # Miniredis
 
-**miniredis** is a minimal Redis implementation written in Go.
+**miniredis** is a minimal Redis implementation written in Go with ~500 lines of code only.
 
 ## Overview
 
