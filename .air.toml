@@ -1,0 +1,14 @@
+env_files = []
+root = "."
+testdata_dir = "testdata"
+tmp_dir = "bin"
+
+[build]
+  bin = "./bin/miniredis"
+  cmd = "make build"
+  delay = 500
+  entrypoint = ["./bin/miniredis"]
+
+[screen]
+  clear_on_rebuild = true
+  keep_scroll = true
