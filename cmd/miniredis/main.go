@@ -6,9 +6,9 @@ import (
 	"net"
 	"strings"
 
+	"github.com/yatoenough/miniredis/internal/aof"
 	"github.com/yatoenough/miniredis/internal/handler"
 	"github.com/yatoenough/miniredis/internal/resp"
-	"github.com/yatoenough/miniredis/internal/writer"
 )
 
 func main() {
@@ -17,7 +17,9 @@ func main() {
 		log.Fatalf("%v", err)
 	}
 
-	fmt.Println("Listening on port :6379")
+	fmt.Println("miniredis listening on port :6379")
+
+	aof := initAof()
 
 	for {
 		conn, err := l.Accept()
@@ -25,44 +27,30 @@ func main() {
 			log.Fatalf("%v", err)
 		}
 
-		go handleConn(conn)
+		go handler.HandleConn(conn, aof)
 	}
 }
 
-func handleConn(conn net.Conn) {
-	defer conn.Close()
+func initAof() *aof.AOF {
+	aof, err := aof.NewAof("database.aof")
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	defer aof.Close()
 
-	for {
-		respr := resp.NewRESP(conn)
-		value, err := respr.Read()
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
-		if value.Typ != "array" {
-			fmt.Println("Invalid request, expected array")
-			continue
-		}
-
-		if len(value.Array) == 0 {
-			fmt.Println("Invalid request, expected array length > 0")
-			continue
-		}
-
+	aof.Read(func(value resp.Value) {
 		command := strings.ToUpper(value.Array[0].Bulk)
 		args := value.Array[1:]
-
-		w := writer.NewWriter(conn)
 
 		handler, ok := handler.Handlers[command]
 		if !ok {
 			fmt.Println("Invalid command: ", command)
-			w.Write(resp.Value{Typ: "string", Str: ""})
-			continue
+			return
 		}
 
-		result := handler(args)
-		w.Write(result)
-	}
+		handler(args)
+	})
+
+	return aof
 }

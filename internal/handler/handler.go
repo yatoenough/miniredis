@@ -1,9 +1,14 @@
 package handler
 
 import (
+	"fmt"
+	"net"
+	"strings"
 	"sync"
 
+	"github.com/yatoenough/miniredis/internal/aof"
 	"github.com/yatoenough/miniredis/internal/resp"
+	"github.com/yatoenough/miniredis/internal/writer"
 )
 
 var SETs = map[string]string{}
@@ -19,6 +24,48 @@ var Handlers = map[string]func([]resp.Value) resp.Value{
 	"HSET":    hset,
 	"HGET":    hget,
 	"HGETALL": hgetall,
+}
+
+func HandleConn(conn net.Conn, aof *aof.AOF) {
+	defer conn.Close()
+
+	for {
+		respr := resp.NewRESP(conn)
+		value, err := respr.Read()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		if value.Typ != "array" {
+			fmt.Println("Invalid request, expected array")
+			continue
+		}
+
+		if len(value.Array) == 0 {
+			fmt.Println("Invalid request, expected array length > 0")
+			continue
+		}
+
+		command := strings.ToUpper(value.Array[0].Bulk)
+		args := value.Array[1:]
+
+		w := writer.NewWriter(conn)
+
+		handler, ok := Handlers[command]
+		if !ok {
+			fmt.Println("Invalid command: ", command)
+			w.Write(resp.Value{Typ: "string", Str: ""})
+			continue
+		}
+
+		if command == "SET" || command == "HSET" {
+			aof.Write(value)
+		}
+
+		result := handler(args)
+		w.Write(result)
+	}
 }
 
 func ping(args []resp.Value) resp.Value {
