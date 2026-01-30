@@ -20,6 +20,7 @@ func main() {
 	fmt.Println("miniredis listening on port :6379")
 
 	aof := initAof()
+	defer aof.Close()
 
 	for {
 		conn, err := l.Accept()
@@ -37,7 +38,6 @@ func initAof() *aof.AOF {
 		fmt.Println(err)
 		return nil
 	}
-	defer aof.Close()
 
 	aof.Read(func(value resp.Value) {
 		command := strings.ToUpper(value.Array[0].Bulk)
